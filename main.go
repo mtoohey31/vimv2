@@ -1,13 +1,17 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
+	"path"
 	"runtime"
+	"strconv"
 	"strings"
+	"time"
 
 	"mtoohey.com/which"
 )
@@ -21,9 +25,38 @@ func main() {
 	res := 0
 	defer func() { os.Exit(res) }()
 
-	// creating tmpfile, finding path, and defering cleanup
+	// creating tmpfile and defering cleanup
 
-	tmpfile, err := ioutil.TempFile("", "vimv2")
+	var tmpfile *os.File
+	var tmpfilePath string
+	var err error
+
+	prefix := path.Join(os.TempDir(), "vimv2")
+	try := 0
+	rand.Seed(time.Now().UnixNano())
+
+	for {
+		tmpfilePath = prefix + strconv.Itoa(rand.Int())
+		tmpfile, err = os.OpenFile(tmpfilePath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
+
+		if errors.Is(err, os.ErrExist) {
+			if try++; try < 10000 {
+				continue
+			}
+
+			fmt.Fprintln(os.Stderr, "too many retries creating tmpfile")
+			res = 1
+			runtime.Goexit()
+		}
+
+		break
+	}
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "creating tmpfile failed with %s\n", err.Error())
+		res = 1
+		runtime.Goexit()
+	}
 
 	defer func() {
 		err := tmpfile.Close()
@@ -33,15 +66,6 @@ func main() {
 			runtime.Goexit()
 		}
 	}()
-
-	tmpfilePath, err := os.Readlink(fmt.Sprintf("/proc/%d/fd/%d", os.Getpid(),
-		tmpfile.Fd()))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to find path of tmpfile with %s\n",
-			err.Error())
-		res = 1
-		runtime.Goexit()
-	}
 
 	// NOTE: since defers are executed in LIFO order, this delete will occur
 	// before the close, but that's fine, the os should handle it without error
@@ -53,12 +77,6 @@ func main() {
 			runtime.Goexit()
 		}
 	}()
-
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "failed to create tmpfile")
-		res = 1
-		runtime.Goexit()
-	}
 
 	// detecting editor
 
