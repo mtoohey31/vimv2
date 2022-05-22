@@ -12,7 +12,7 @@
             name = "vimv2";
             pname = name;
             src = ./.;
-            vendorSha256 = "iAe2jFjATyG+HV5YJiXKV4w1AfMep4do2tYGnuWOJ0E=";
+            vendorSha256 = "pQpattmS9VmO3ZIQUFn66az8GSmB4IvYhTTCFn6SUmo=";
           };
           defaultPackage = packages.vimv2;
 

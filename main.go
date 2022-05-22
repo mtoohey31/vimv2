@@ -12,8 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"mtoohey.com/which"
 )
 
 // TODO: prompt users on whether they want to retry (with the tmpfile reset or
@@ -86,7 +84,7 @@ func main() {
 		if editor == "" {
 			var err error = nil
 			for i := 0; i < len(editors) && err != nil; i++ {
-				editor, err = which.Which(editors[i])
+				editor, err = exec.LookPath(editors[i])
 			}
 		}
 	}
