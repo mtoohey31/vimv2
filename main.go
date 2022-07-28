@@ -12,8 +12,6 @@ import (
 // TODO: prompt users on whether they want to retry (with the tmpfile reset or
 // the same) if they enter invalid stuff.
 
-var editors []string = []string{"nvim", "vim", "vi"}
-
 func main() {
 	res := 0
 	defer func() { os.Exit(res) }()
@@ -50,17 +48,10 @@ func main() {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = os.Getenv("VISUAL")
-		if editor == "" {
-			var err error = nil
-			for i := 0; i < len(editors) && err != nil; i++ {
-				editor, err = exec.LookPath(editors[i])
-			}
-		}
 	}
 	if editor == "" {
 		fmt.Fprintf(os.Stderr,
-			"no viable editor found, please set $EDITOR, $VISUAL, or install one of %v",
-			editors)
+			"no viable editor found, please set $EDITOR or $VISUAL")
 		res = 1
 		runtime.Goexit()
 	}
