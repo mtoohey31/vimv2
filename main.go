@@ -1,17 +1,12 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
 	"os/exec"
-	"path"
 	"runtime"
-	"strconv"
 	"strings"
-	"time"
 )
 
 // TODO: prompt users on whether they want to retry (with the tmpfile reset or
@@ -25,33 +20,10 @@ func main() {
 
 	// creating tmpfile and defering cleanup
 
-	var tmpfile *os.File
-	var tmpfilePath string
-	var err error
-
-	prefix := path.Join(os.TempDir(), "vimv2")
-	try := 0
-	rand.Seed(time.Now().UnixNano())
-
-	for {
-		tmpfilePath = prefix + strconv.Itoa(rand.Int())
-		tmpfile, err = os.OpenFile(tmpfilePath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
-
-		if errors.Is(err, os.ErrExist) {
-			if try++; try < 10000 {
-				continue
-			}
-
-			fmt.Fprintln(os.Stderr, "too many retries creating tmpfile")
-			res = 1
-			runtime.Goexit()
-		}
-
-		break
-	}
-
+	tmpfile, err := os.CreateTemp("", "vimv2")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "creating tmpfile failed with %s\n", err.Error())
+		fmt.Fprintf(os.Stderr, "creating tmpfile failed with %s\n",
+			err.Error())
 		res = 1
 		runtime.Goexit()
 	}
@@ -59,18 +31,15 @@ func main() {
 	defer func() {
 		err := tmpfile.Close()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "closing tmpfile failed with %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "closing tmpfile failed with %s\n",
+				err.Error())
 			res = 1
 			runtime.Goexit()
 		}
-	}()
-
-	// NOTE: since defers are executed in LIFO order, this delete will occur
-	// before the close, but that's fine, the os should handle it without error
-	defer func() {
-		err := os.Remove(tmpfilePath)
+		err = os.Remove(tmpfile.Name())
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "deleting tmpfile failed with %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "removing tmpfile failed with %s\n",
+				err.Error())
 			res = 1
 			runtime.Goexit()
 		}
@@ -124,7 +93,7 @@ func main() {
 
 	// running editor
 
-	cmd := exec.Command(editor, tmpfilePath)
+	cmd := exec.Command(editor, tmpfile.Name())
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
