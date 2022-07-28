@@ -71,12 +71,14 @@ func main() {
 	for i, entry := range entries {
 		sources[i] = entry.Name()
 		if _, err := tmpfile.Write([]byte(entry.Name())); err != nil {
-			fmt.Fprintf(os.Stderr, "writing to tmpfile failed with %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "writing to tmpfile failed with %s\n",
+				err.Error())
 			res = 1
 			runtime.Goexit()
 		}
 		if _, err := tmpfile.Write([]byte{byte('\n')}); err != nil {
-			fmt.Fprintf(os.Stderr, "writing to tmpfile failed with %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "writing to tmpfile failed with %s\n",
+				err.Error())
 			res = 1
 			runtime.Goexit()
 		}
@@ -121,8 +123,8 @@ func main() {
 	}
 
 	// destination collision detection and data structure setup. collisions
-	// detected here cannot be resolved (without overwriting files) and will have
-	// to be revised before continuing
+	// detected here cannot be resolved (without overwriting files) and will
+	// have to be revised before continuing
 
 	newNames := make([]string, len(entries))
 	sourceCollisionLookup := make(map[string]int)
@@ -150,20 +152,22 @@ func main() {
 		// already checked them in the previous loop
 		destCollisionIndex, destCollisionExists := sourceCollisionLookup[dest]
 
-		// remove the source from the collision lookup because it'll be moved soon
+		// remove the source from the collision lookup because it'll be moved
+		// soon
 		delete(sourceCollisionLookup, source)
 
 		if destCollisionExists {
-			// if the index of the collision item is the same as the current index,
-			// the destination is the same as the source so we can skip everything
+			// if the index of the collision item is the same as the current
+			// index, the destination is the same as the source so we can skip
+			// everything
 			if destCollisionIndex == i {
 				continue
 			}
 
 			tmpName := sources[destCollisionIndex] + ".tmp"
-			// while the temporary name for the current file that's in the way is
-			// still conflicting with existing files, we keep adding more ".tmp"s to
-			// the end
+			// while the temporary name for the current file that's in the way
+			// is still conflicting with existing files, we keep adding more
+			// ".tmp"s to the end
 			for {
 				_, sourceCollision := sourceCollisionLookup[tmpName]
 				// we have to check the destination on these iterations
@@ -175,7 +179,8 @@ func main() {
 			}
 			os.Rename(sources[destCollisionIndex], tmpName)
 
-			// reorganize the data structures related to the movement of the tmpfile
+			// reorganize the data structures related to the movement of the
+			// tmpfile
 			delete(sourceCollisionLookup, sources[destCollisionIndex])
 			sources[destCollisionIndex] = tmpName
 			sourceCollisionLookup[tmpName] = destCollisionIndex
