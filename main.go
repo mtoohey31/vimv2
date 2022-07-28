@@ -12,34 +12,33 @@ import (
 // TODO: prompt users on whether they want to retry (with the tmpfile reset or
 // the same) if they enter invalid stuff.
 
+var exitCode = 0
+
+func die(format string, a ...any) {
+	fmt.Fprintf(os.Stderr, "%s: ", os.Args[0])
+	fmt.Fprintf(os.Stderr, format, a...)
+	exitCode = 1
+	runtime.Goexit()
+}
+
 func main() {
-	res := 0
-	defer func() { os.Exit(res) }()
+	defer func() { os.Exit(exitCode) }()
 
 	// creating tmpfile and defering cleanup
 
 	tmpfile, err := os.CreateTemp("", "vimv2")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "creating tmpfile failed with %s\n",
-			err.Error())
-		res = 1
-		runtime.Goexit()
+		die("creating tmpfile failed with %s\n", err.Error())
 	}
 
 	defer func() {
 		err := tmpfile.Close()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "closing tmpfile failed with %s\n",
-				err.Error())
-			res = 1
-			runtime.Goexit()
+			die("closing tmpfile failed with %s\n", err.Error())
 		}
 		err = os.Remove(tmpfile.Name())
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "removing tmpfile failed with %s\n",
-				err.Error())
-			res = 1
-			runtime.Goexit()
+			die("removing tmpfile failed with %s\n", err.Error())
 		}
 	}()
 
@@ -50,20 +49,14 @@ func main() {
 		editor = os.Getenv("VISUAL")
 	}
 	if editor == "" {
-		fmt.Fprintf(os.Stderr,
-			"no viable editor found, please set $EDITOR or $VISUAL")
-		res = 1
-		runtime.Goexit()
+		die("no viable editor found, please set $EDITOR or $VISUAL")
 	}
 
 	// reading sources and writing to tmpfile
 
 	entries, err := os.ReadDir(".")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "reading current directory failed with %s\n",
-			err.Error())
-		res = 1
-		runtime.Goexit()
+		die("reading current directory failed with %s\n", err.Error())
 	}
 
 	sources := make([]string, len(entries))
@@ -71,16 +64,10 @@ func main() {
 	for i, entry := range entries {
 		sources[i] = entry.Name()
 		if _, err := tmpfile.Write([]byte(entry.Name())); err != nil {
-			fmt.Fprintf(os.Stderr, "writing to tmpfile failed with %s\n",
-				err.Error())
-			res = 1
-			runtime.Goexit()
+			die("writing to tmpfile failed with %s\n", err.Error())
 		}
 		if _, err := tmpfile.Write([]byte{byte('\n')}); err != nil {
-			fmt.Fprintf(os.Stderr, "writing to tmpfile failed with %s\n",
-				err.Error())
-			res = 1
-			runtime.Goexit()
+			die("writing to tmpfile failed with %s\n", err.Error())
 		}
 	}
 
@@ -92,10 +79,7 @@ func main() {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "running editor command failed with %s\n",
-			err.Error())
-		res = 1
-		runtime.Goexit()
+		die("running editor command failed with %s\n", err.Error())
 	}
 
 	// reading the result of the edit
@@ -103,9 +87,7 @@ func main() {
 	tmpfile.Seek(0, 0)
 	tmpfileContents, err := io.ReadAll(tmpfile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "reading tmpfile failed with %s\n", err.Error())
-		res = 1
-		runtime.Goexit()
+		die("reading tmpfile failed with %s\n", err.Error())
 	}
 
 	// validating the edit
@@ -113,13 +95,9 @@ func main() {
 	lines := strings.Split(string(tmpfileContents), "\n")
 	lines = lines[:len(lines)-1]
 	if len(lines) > len(sources) {
-		fmt.Fprintln(os.Stderr, "tmpfile contains too many lines")
-		res = 1
-		runtime.Goexit()
+		die("tmpfile contains too many lines\n")
 	} else if len(lines) < len(sources) {
-		fmt.Fprintln(os.Stderr, "tmpfile contains too few lines")
-		res = 1
-		runtime.Goexit()
+		die("tmpfile contains too few lines\n")
 	}
 
 	// destination collision detection and data structure setup. collisions
@@ -132,9 +110,7 @@ func main() {
 
 	for i, line := range lines {
 		if _, found := destCollisionLookup[line]; found {
-			fmt.Fprintf(os.Stderr, "duplicate destination \"%s\"\n", line)
-			res = 1
-			runtime.Goexit()
+			die("duplicate destination \"%s\"\n", line)
 		}
 		newNames[i] = line
 		sourceCollisionLookup[sources[i]] = i
