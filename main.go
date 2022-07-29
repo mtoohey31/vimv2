@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"github.com/alecthomas/kong"
 )
 
 // TODO: prompt users on whether they want to retry (with the tmpfile reset or
@@ -21,7 +23,13 @@ func die(format string, a ...any) {
 	runtime.Goexit()
 }
 
+var cli struct {
+	Directory string `arg:"" default:"." type:"existingdir" help:"The directory in which you want to rename files."`
+}
+
 func main() {
+	kong.Parse(&cli)
+
 	defer func() { os.Exit(exitCode) }()
 
 	// creating tmpfile and defering cleanup
@@ -54,7 +62,7 @@ func main() {
 
 	// reading sources and writing to tmpfile
 
-	entries, err := os.ReadDir(".")
+	entries, err := os.ReadDir(cli.Directory)
 	if err != nil {
 		die("reading current directory failed with %s\n", err.Error())
 	}
