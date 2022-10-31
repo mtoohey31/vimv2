@@ -15,15 +15,6 @@ import (
 // TODO: prompt users on whether they want to retry (with the tmpfile reset or
 // the same) if they enter invalid stuff.
 
-var exitCode = 0
-
-func die(format string, a ...any) {
-	fmt.Fprintf(os.Stderr, "%s: ", os.Args[0])
-	fmt.Fprintf(os.Stderr, format, a...)
-	exitCode = 1
-	runtime.Goexit()
-}
-
 var cli struct {
 	Directory string `arg:"" default:"." type:"existingdir" help:"The directory in which you want to rename files."`
 }
@@ -31,7 +22,18 @@ var cli struct {
 func main() {
 	kong.Parse(&cli)
 
+	// default to exit code 0, and defer an explicit exit with it
+	exitCode := 0
 	defer func() { os.Exit(exitCode) }()
+
+	die := func(format string, a ...any) {
+		fmt.Fprintf(os.Stderr, "%s: ", os.Args[0])
+		fmt.Fprintf(os.Stderr, format, a...)
+		exitCode = 1
+		// we use this instead of os.Exit so that we can run all cleanup that's
+		// been deferred up 'till this point
+		runtime.Goexit()
+	}
 
 	// creating tmpfile and defering cleanup
 
