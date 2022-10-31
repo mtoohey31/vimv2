@@ -29,28 +29,28 @@ func main() {
 	die := func(format string, a ...any) {
 		fmt.Fprintf(os.Stderr, "%s: ", os.Args[0])
 		fmt.Fprintf(os.Stderr, format, a...)
+		fmt.Fprintln(os.Stderr)
 		exitCode = 1
 		// we use this instead of os.Exit so that we can run all cleanup that's
 		// been deferred up 'till this point
 		runtime.Goexit()
 	}
+	dieWrap := func(err error, format string, a ...any) {
+		if err == nil {
+			return
+		}
+
+		die(fmt.Sprintf("%s: %%s", format), append(a, err.Error())...)
+	}
 
 	// creating tmpfile and defering cleanup
 
 	tmpfile, err := os.CreateTemp("", "vimv2")
-	if err != nil {
-		die("creating tmpfile failed with %s\n", err.Error())
-	}
+	dieWrap(err, "creating tmpfile failed")
 
 	defer func() {
-		err := tmpfile.Close()
-		if err != nil {
-			die("closing tmpfile failed with %s\n", err.Error())
-		}
-		err = os.Remove(tmpfile.Name())
-		if err != nil {
-			die("removing tmpfile failed with %s\n", err.Error())
-		}
+		dieWrap(tmpfile.Close(), "closing tmpfile failed")
+		dieWrap(os.Remove(tmpfile.Name()), "removing tmpfile failed")
 	}()
 
 	// detecting editor
@@ -66,20 +66,16 @@ func main() {
 	// reading sources and writing to tmpfile
 
 	entries, err := os.ReadDir(cli.Directory)
-	if err != nil {
-		die("reading current directory failed with %s\n", err.Error())
-	}
+	dieWrap(err, "reading directory failed")
 
 	sources := make([]string, len(entries))
 
 	for i, entry := range entries {
 		sources[i] = entry.Name()
-		if _, err := tmpfile.Write([]byte(entry.Name())); err != nil {
-			die("writing to tmpfile failed with %s\n", err.Error())
-		}
-		if _, err := tmpfile.Write([]byte{byte('\n')}); err != nil {
-			die("writing to tmpfile failed with %s\n", err.Error())
-		}
+		_, err := tmpfile.Write([]byte(entry.Name()))
+		dieWrap(err, "writing to tmpfile failed")
+		_, err = tmpfile.Write([]byte{byte('\n')})
+		dieWrap(err, "writing to tmpfile failed")
 	}
 
 	// running editor
@@ -89,26 +85,22 @@ func main() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	if err := cmd.Run(); err != nil {
-		die("running editor command failed with %s\n", err.Error())
-	}
+	dieWrap(cmd.Run(), "running editor command failed")
 
 	// reading the result of the edit
 
 	tmpfile.Seek(0, 0)
 	tmpfileContents, err := io.ReadAll(tmpfile)
-	if err != nil {
-		die("reading tmpfile failed with %s\n", err.Error())
-	}
+	dieWrap(err, "reading tmpfile failed")
 
 	// validating the edit
 
 	lines := strings.Split(string(tmpfileContents), "\n")
 	lines = lines[:len(lines)-1]
 	if len(lines) > len(sources) {
-		die("tmpfile contains too many lines\n")
+		die("tmpfile contains too many lines")
 	} else if len(lines) < len(sources) {
-		die("tmpfile contains too few lines\n")
+		die("tmpfile contains too few lines")
 	}
 
 	// destination collision detection and data structure setup. collisions
@@ -121,7 +113,7 @@ func main() {
 
 	for i, line := range lines {
 		if _, found := destCollisionLookup[line]; found {
-			die("duplicate destination \"%s\"\n", line)
+			die("duplicate destination \"%s\"", line)
 		}
 		newNames[i] = line
 		sourceCollisionLookup[sources[i]] = i
@@ -164,7 +156,7 @@ func main() {
 				}
 				tmpName += ".tmp"
 			}
-			os.Rename(sources[destCollisionIndex], tmpName)
+			dieWrap(os.Rename(sources[destCollisionIndex], tmpName), "rename failed")
 
 			// reorganize the data structures related to the movement of the
 			// tmpfile
@@ -173,6 +165,6 @@ func main() {
 			sourceCollisionLookup[tmpName] = destCollisionIndex
 		}
 
-		os.Rename(source, dest)
+		dieWrap(os.Rename(source, dest), "rename failed")
 	}
 }
