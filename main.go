@@ -53,11 +53,11 @@ func main() {
 
 	// detecting editor
 
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = os.Getenv("VISUAL")
+	editor, editorFound := os.LookupEnv("EDITOR")
+	if !editorFound {
+		editor, editorFound = os.LookupEnv("VISUAL")
 	}
-	if editor == "" {
+	if !editorFound {
 		die("no viable editor found, please set $EDITOR or $VISUAL")
 	}
 
