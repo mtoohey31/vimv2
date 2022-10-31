@@ -1,3 +1,4 @@
+// vimv2 is vi-mv-2, not vim-v2.
 package main
 
 import (
