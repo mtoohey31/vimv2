@@ -2,12 +2,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 
 	"github.com/alecthomas/kong"
 )
@@ -68,10 +67,9 @@ func main() {
 	entries, err := os.ReadDir(cli.Directory)
 	dieWrap(err, "reading directory failed")
 
-	sources := make([]string, len(entries))
-
+	srcs := make([]string, len(entries))
 	for i, entry := range entries {
-		sources[i] = entry.Name()
+		srcs[i] = entry.Name()
 		_, err := tmpfile.Write([]byte(entry.Name()))
 		dieWrap(err, "writing to tmpfile failed")
 		_, err = tmpfile.Write([]byte{byte('\n')})
@@ -87,48 +85,37 @@ func main() {
 
 	dieWrap(cmd.Run(), "running editor command failed")
 
-	// reading the result of the edit
+	// reading the result of the edit and destination collision detection and
+	// data structure setup. collisions detected here cannot be resolved
+	// (without overwriting files) and will have to be revised before
+	// continuing
 
 	tmpfile.Seek(0, 0)
-	tmpfileContents, err := io.ReadAll(tmpfile)
-	dieWrap(err, "reading tmpfile failed")
+	scanner := bufio.NewScanner(tmpfile)
 
-	// validating the edit
+	dstSet := map[string]struct{}{}
+	srcToDst := map[string]string{}
 
-	// TODO: assemble the collision map line by line, erroring immediately before
-	// reading any further once we hit an error condition
-	lines := strings.Split(string(tmpfileContents), "\n")
-	lines = lines[:len(lines)-1]
-	if len(lines) > len(sources) {
-		die("tmpfile contains too many lines")
-	} else if len(lines) < len(sources) {
+	for scanner.Scan() {
+		if len(dstSet) > len(srcs) {
+			die("tmpfile contains too many lines")
+		}
+
+		dst := scanner.Text()
+		_, found := dstSet[dst]
+		if found {
+			die("duplicate destination \"%s\"", dst)
+		}
+		srcToDst[srcs[len(dstSet)]] = dst
+		dstSet[dst] = struct{}{}
+	}
+	dieWrap(scanner.Err(), "reading tmpfile failed")
+
+	if len(dstSet) < len(srcs) {
 		die("tmpfile contains too few lines")
 	}
 
-	// destination collision detection and data structure setup. collisions
-	// detected here cannot be resolved (without overwriting files) and will
-	// have to be revised before continuing
-
-	newNames := make([]string, len(entries))
-	sourceCollisionLookup := make(map[string]int)
-	dstSet := make(map[string]struct{})
-
-	for i, line := range lines {
-		if _, found := dstSet[line]; found {
-			die("duplicate destination \"%s\"", line)
-		}
-		newNames[i] = line
-		sourceCollisionLookup[sources[i]] = i
-		dstSet[line] = struct{}{}
-	}
-
-	// movement and temporary collision detection. collisions detected here can
-	// be resolved by temporarily moving around files
-
-	srcToDst := map[string]string{}
-	for i, src := range sources {
-		srcToDst[src] = newNames[i]
-	}
+	// movement
 
 	dieWrap(moveAll(srcToDst, os.Rename, tmpClosure(srcToDst, dstSet)),
 		"renaming failed")
