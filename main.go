@@ -162,25 +162,23 @@ func main() {
 
 		for {
 			// print prompt
-			fmt.Printf("[\033[1;31me\033[0mdit existing/edit " +
-				"\033[1;31mn\033[0mew/\033[1;31mq\033[0muit]: ")
+			fmt.Fprintf(os.Stderr, "[\033[1;31me\033[0mdit "+
+				"existing/edit \033[1;31mn\033[0mew/\033[1;31mq\033[0muit]: ")
 
 			// read 1 byte in raw mode so no enter is required
 			var b [1]byte
-			oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+			oldState, err := term.MakeRaw(int(os.Stderr.Fd()))
 			dieWrap(err, "failed to set terminal to raw mode")
 			_, err = os.Stdin.Read(b[:])
-			dieWrap(term.Restore(int(os.Stdin.Fd()), oldState),
+			dieWrap(term.Restore(int(os.Stderr.Fd()), oldState),
 				"failed to restore terminal state")
 
 			// print char (would be nice to just use terminal echo, but that's
 			// not an option with x/term), and print newline so things show up
 			// on the next line
 			fmt.Fprintf(os.Stderr, "%c\n", b[0])
-			if err == io.EOF {
-				die("user exited")
-			}
-			dieWrap(err, "failed to read from stdin")
+
+			dieWrap(err, "failed to read from stderr")
 
 			// proceed according to user input
 			switch b[0] {
