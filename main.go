@@ -13,8 +13,6 @@ import (
 	"golang.org/x/term"
 )
 
-// TODO: remove dependencies
-
 var cli struct {
 	Directory string `arg:"" default:"." type:"existingdir" help:"The directory in which you want to rename files."`
 }
