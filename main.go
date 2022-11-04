@@ -19,12 +19,15 @@ var cli struct {
 	Directory string `arg:"" default:"." type:"existingdir" help:"The directory in which you want to rename files."`
 }
 
+// aliased to allow for test mocking
+var exit = os.Exit
+
 func main() {
 	kong.Parse(&cli)
 
 	// default to exit code 0, and defer an explicit exit with it
 	exitCode := 0
-	defer func() { os.Exit(exitCode) }()
+	defer func() { exit(exitCode) }()
 
 	warn := func(format string, a ...any) {
 		fmt.Fprintf(os.Stderr, "%s: ", os.Args[0])
@@ -53,7 +56,7 @@ func main() {
 		editor, editorFound = os.LookupEnv("VISUAL")
 	}
 	if !editorFound {
-		die("no viable editor found, please set $EDITOR or $VISUAL")
+		die("no editor found, please set $EDITOR or $VISUAL")
 	}
 
 	// toctou is inevitable, we assume that nobody touches the files from the
@@ -160,6 +163,7 @@ func main() {
 			warn("tmpfile contains too few lines")
 		}
 
+	PROMPT:
 		for {
 			// print prompt
 			fmt.Fprintf(os.Stderr, "[\033[1;31me\033[0mdit "+
@@ -167,17 +171,26 @@ func main() {
 
 			// read 1 byte in raw mode so no enter is required
 			var b [1]byte
-			oldState, err := term.MakeRaw(int(os.Stderr.Fd()))
-			dieWrap(err, "failed to set terminal to raw mode")
-			_, err = os.Stdin.Read(b[:])
-			dieWrap(term.Restore(int(os.Stderr.Fd()), oldState),
-				"failed to restore terminal state")
+			if term.IsTerminal(int(os.Stderr.Fd())) {
+				oldState, err := term.MakeRaw(int(os.Stderr.Fd()))
+				dieWrap(err, "failed to set terminal to raw mode")
+				_, err = os.Stdin.Read(b[:])
+				dieWrap(term.Restore(int(os.Stderr.Fd()), oldState),
+					"failed to restore terminal state")
+			} else {
+				_, err = os.Stdin.Read(b[:])
+				if err == io.EOF {
+					fmt.Fprintln(os.Stderr)
+					die("user exited")
+				}
+			}
 
 			// print char (would be nice to just use terminal echo, but that's
 			// not an option with x/term), and print newline so things show up
 			// on the next line
 			fmt.Fprintf(os.Stderr, "%c\n", b[0])
 
+			// handle the read error
 			dieWrap(err, "failed to read from stderr")
 
 			// proceed according to user input
@@ -187,7 +200,7 @@ func main() {
 				tmpfile = nil
 				fallthrough
 			case 'e', 'E':
-				break
+				break PROMPT
 			case 3 /* ^C */, 4 /* ^D */, 'q', 'Q':
 				die("user exited")
 			default:
@@ -200,4 +213,5 @@ func main() {
 
 	dieWrap(moveAll(srcToDst, os.Rename, tmpClosure(srcToDst, dstSet)),
 		"renaming failed")
+	runtime.Goexit()
 }
