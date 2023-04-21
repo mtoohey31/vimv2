@@ -22,7 +22,7 @@
     packages.default = vimv2;
 
     devShells.default = mkShell {
-      packages = [ go gopls revive ];
+      packages = [ go gopls ];
     };
   });
 }
