@@ -1,3 +1,6 @@
 /result
+/.direnv
+
+*.test
+*.out
 /vimv2
-/coverage.out
