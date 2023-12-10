@@ -12,7 +12,7 @@
         name = "vimv2";
         pname = name;
         src = ./.;
-        vendorSha256 = null;
+        vendorHash = null;
       };
     };
   } // utils.lib.eachDefaultSystem (system: with import nixpkgs
