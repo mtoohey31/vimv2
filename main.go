@@ -199,6 +199,7 @@ func main() {
 			switch b[0] {
 			case 'n', 'N':
 				dieWrap(tmpfile.Close(), "closing tmpfile failed")
+				dieWrap(os.Remove(tmpfile.Name()), "removing tmpfile failed")
 				tmpfile = nil
 				fallthrough
 			case 'e', 'E':
