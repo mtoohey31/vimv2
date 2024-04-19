@@ -71,13 +71,15 @@ func main() {
 	}
 
 	// variable setup for the loop below
-	var tmpfile *os.File
-	var tmpfileCreated bool
+	tmpfile := (*os.File)(nil)
+	tmpfileCreated, tmpfileClosed := false, false
 
 	defer func() {
 		// cleans up the last remaining tmpfile, if one exists
 		if tmpfileCreated {
-			dieWrap(tmpfile.Close(), "closing tmpfile failed")
+			if !tmpfileClosed {
+				dieWrap(tmpfile.Close(), "closing tmpfile failed")
+			}
 			dieWrap(os.Remove(tmpfile.Name()), "removing tmpfile failed")
 		}
 	}()
@@ -104,7 +106,8 @@ func main() {
 				dieWrap(err, "writing to tmpfile failed")
 			}
 
-			dieWrap(tmpfile.Sync(), "syncing tmpfile failed")
+			dieWrap(tmpfile.Close(), "closing tmpfile failed")
+			tmpfileClosed = true
 		}
 
 		// running editor
@@ -122,8 +125,9 @@ func main() {
 		srcToDst = map[string]string{}
 		dstSet = map[string]struct{}{}
 
-		_, err = tmpfile.Seek(0, 0)
-		dieWrap(err, "seeking tmpfile failed")
+		tmpfile, err = os.OpenFile(tmpfile.Name(), os.O_RDWR, 0)
+		dieWrap(err, "reopening tmpfile failed")
+		tmpfileClosed = false
 		scanner := bufio.NewScanner(tmpfile)
 
 		// indicates we exited the loop manually
